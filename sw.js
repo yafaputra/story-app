@@ -1,4 +1,5 @@
 
+
 const CACHE_SHELL = 'storymap-shell-v3';
 const CACHE_DYNAMIC = 'storymap-dynamic-v3';
 const CACHE_TILES = 'storymap-tiles-v1';
@@ -176,10 +177,18 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    (async () => {
+      
+      if (Notification.permission !== 'granted') {
+        console.warn('[SW] showNotification dibatalkan: permission belum diberikan (' + Notification.permission + '). Pastikan Notification.requestPermission() sudah dipanggil dari halaman terlebih dahulu.');
+        return;
+      }
+      await self.registration.showNotification(title, options);
+    })()
   );
 });
 
+// ---- NOTIFICATION CLICK ----
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked, action:', event.action);
   event.notification.close();
@@ -204,6 +213,7 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
+// ---- BACKGROUND SYNC ----
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-stories') {
     event.waitUntil(
