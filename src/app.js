@@ -1,10 +1,9 @@
-
 import { router } from './utils/router.js';
 import './styles/main.css';
 import { api } from './utils/api.js';
 import { idb } from './utils/idb.js';
 import { showToast, isOnline } from './utils/helpers.js';
-import { subscribePush, unsubscribePush, isPushSupported, getPushSubscription } from './utils/push.js';
+import { subscribePush, unsubscribePush, isPushSupported, getPushSubscription, requestNotificationPermission } from './utils/push.js';
 
 import { renderHome } from './pages/home.js';
 import { renderExplore } from './pages/explore.js';
@@ -18,6 +17,15 @@ async function registerSW() {
   try {
     const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
     console.log('[SW] Registered, scope:', reg.scope);
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      setTimeout(async () => {
+        if (api.isLoggedIn() && Notification.permission === 'default') {
+          const result = await Notification.requestPermission();
+          console.log('[SW] Notification permission:', result);
+        }
+      }, 2000);
+    }
 
     navigator.serviceWorker.addEventListener('message', ({ data }) => {
       if (!data) return;
@@ -75,6 +83,12 @@ async function initPushToggle() {
 
   if (!isPushSupported() || !api.isLoggedIn()) return;
   wrap.classList.remove('hidden');
+
+  if (Notification.permission === 'denied') {
+    btn.title = 'Notifikasi diblokir. Aktifkan di pengaturan browser.';
+    btn.disabled = true;
+    return;
+  }
 
   const sub = await getPushSubscription();
   updatePushBtn(btn, !!sub);
@@ -166,13 +180,12 @@ function initMobileMenu() {
   });
 }
 
-// ---- Network Status ----
 function initNetworkStatus() {
   const banner = document.getElementById('statusBanner');
   const update = () => {
     if (!banner) return;
     if (!navigator.onLine) {
-      banner.textContent = '📶 Anda sedang offline. Data ditampilkan dari cache.';
+      banner.textContent = 'Anda sedang offline. Data ditampilkan dari cache.';
       banner.className = 'status-banner offline';
       banner.classList.remove('hidden');
     } else {
@@ -181,7 +194,7 @@ function initNetworkStatus() {
       if (api.isLoggedIn()) {
         idb.getQueue().then(q => {
           if (q.length) {
-            showToast(`🔄 Menyinkronkan ${q.length} cerita offline...`, 'info');
+            showToast(`Menyinkronkan ${q.length} cerita offline...`, 'info');
             syncQueue();
           }
         });
@@ -193,7 +206,6 @@ function initNetworkStatus() {
   update();
 }
 
-// ---- Routes ----
 function setupRoutes() {
   router
     .add('/', () => renderHome())
@@ -217,7 +229,6 @@ function setupRoutes() {
     .init();
 }
 
-// ---- Init ----
 async function init() {
   await idb.open();
   updateNavAuth();
@@ -226,7 +237,6 @@ async function init() {
   initInstallBanner();
   setupRoutes();
 
-  // Async inits after routes are set
   registerSW().then(() => {
     setTimeout(() => initPushToggle(), 800);
   });

@@ -25,7 +25,6 @@ class Router {
     try {
       const path = hash.replace(/^#/, '') || '/';
 
-      // Match route
       let handler = null;
       let params = {};
       for (const [route, fn] of this.#routes) {
@@ -34,7 +33,6 @@ class Router {
       }
       if (!handler) handler = this.#routes.get('/404') || (() => this.#notFound());
 
-      // Guard
       if (this.#beforeEach) {
         const allow = await this.#beforeEach(path, params);
         if (allow === false) return;
@@ -42,7 +40,6 @@ class Router {
 
       const container = document.getElementById('page-container');
 
-      // View Transition API (Kriteria Wajib)
       if (document.startViewTransition && container) {
         const transition = document.startViewTransition(async () => {
           await handler(params);
@@ -64,7 +61,6 @@ class Router {
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // Accessibility: fokus ke main content
       const main = document.getElementById('main-content');
       if (main) {
         main.focus({ preventScroll: true });
@@ -115,7 +111,7 @@ class Router {
   init() {
     const handle = () => this.#handle(window.location.hash);
     window.addEventListener('hashchange', handle);
-    handle(); // handle initial route
+    handle(); 
     return this;
   }
 }

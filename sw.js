@@ -1,13 +1,8 @@
-// ============================================================
-// Service Worker - StoryMap PWA v3
-// Cache First (shell) + Network First (API) + Push Notification
-// ============================================================
 
 const CACHE_SHELL = 'storymap-shell-v3';
 const CACHE_DYNAMIC = 'storymap-dynamic-v3';
 const CACHE_TILES = 'storymap-tiles-v1';
 
-// File yang di-cache sesuai output webpack build (dist/)
 const SHELL_FILES = [
   './',
   './index.html',
@@ -29,7 +24,6 @@ const SHELL_FILES = [
   './icons/icon-512.png',
 ];
 
-// ---- INSTALL ----
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing...');
   event.waitUntil(
@@ -50,7 +44,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// ---- ACTIVATE ----
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating...');
   event.waitUntil(
@@ -67,7 +60,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// ---- FETCH ----
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -75,19 +67,16 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   if (!['http:', 'https:'].includes(url.protocol)) return;
 
-  // Dicoding Story API → Network First
   if (url.hostname === 'story-api.dicoding.dev') {
     event.respondWith(networkFirstWithFallback(request, CACHE_DYNAMIC));
     return;
   }
 
-  // OpenStreetMap tiles → Cache First
   if (url.hostname.includes('tile.openstreetmap.org')) {
     event.respondWith(cacheFirstWithNetwork(request, CACHE_TILES));
     return;
   }
 
-  // Google Fonts / CDN → Cache First
   if (
     url.hostname.includes('fonts.googleapis.com') ||
     url.hostname.includes('fonts.gstatic.com') ||
@@ -98,7 +87,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell + local files → Cache First with offline fallback
   event.respondWith(cacheFirstWithOfflineFallback(request));
 });
 
@@ -155,7 +143,6 @@ async function cacheFirstWithOfflineFallback(request) {
   }
 }
 
-// ---- PUSH NOTIFICATION ----
 self.addEventListener('push', (event) => {
   console.log('[SW] Push received');
 
@@ -193,7 +180,6 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// ---- NOTIFICATION CLICK ----
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked, action:', event.action);
   event.notification.close();
@@ -218,7 +204,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// ---- BACKGROUND SYNC ----
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-stories') {
     event.waitUntil(
