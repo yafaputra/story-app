@@ -1,15 +1,18 @@
+// ============================================================
+// Service Worker - StoryMap PWA v2
+// Cache First (shell) + Network First (API) + Push Notification
+// ============================================================
 
-
-const CACHE_SHELL = 'storymap-shell-v3';
-const CACHE_DYNAMIC = 'storymap-dynamic-v3';
+const CACHE_SHELL = 'storymap-shell-v2';
+const CACHE_DYNAMIC = 'storymap-dynamic-v2';
 const CACHE_TILES = 'storymap-tiles-v1';
 
 const SHELL_FILES = [
   './',
   './index.html',
   './manifest.json',
-  './bundle.js',
   './src/styles/main.css',
+  './src/app.js',
   './src/utils/api.js',
   './src/utils/idb.js',
   './src/utils/push.js',
@@ -25,26 +28,24 @@ const SHELL_FILES = [
   './icons/icon-512.png',
 ];
 
+// ---- INSTALL ----
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing...');
   event.waitUntil(
     caches.open(CACHE_SHELL).then(async (cache) => {
+      // Cache each file individually so one failure doesn't break all
       const results = await Promise.allSettled(
         SHELL_FILES.map(url => cache.add(url))
       );
-      const failed = results
-        .map((r, i) => r.status === 'rejected' ? SHELL_FILES[i] : null)
-        .filter(Boolean);
-      if (failed.length) {
-        console.warn('[SW] Files failed to cache:', failed);
-      } else {
-        console.log('[SW] All shell files cached successfully');
-      }
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length) console.warn('[SW] Some files failed to cache:', failed.length);
+      console.log('[SW] Shell cached');
     })
   );
   self.skipWaiting();
 });
 
+// ---- ACTIVATE ----
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating...');
   event.waitUntil(
@@ -52,45 +53,46 @@ self.addEventListener('activate', (event) => {
       Promise.all(
         keys
           .filter(k => k !== CACHE_SHELL && k !== CACHE_DYNAMIC && k !== CACHE_TILES)
-          .map(k => {
-            console.log('[SW] Deleting old cache:', k);
-            return caches.delete(k);
-          })
+          .map(k => { console.log('[SW] Deleting old cache:', k); return caches.delete(k); })
       )
     ).then(() => self.clients.claim())
   );
 });
 
+// ---- FETCH ----
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Skip non-GET, extensions, analytics
   if (request.method !== 'GET') return;
   if (!['http:', 'https:'].includes(url.protocol)) return;
 
+  // Dicoding Story API → Network First dengan fallback cache
   if (url.hostname === 'story-api.dicoding.dev') {
     event.respondWith(networkFirstWithFallback(request, CACHE_DYNAMIC));
     return;
   }
 
+  // OpenStreetMap tiles → Cache First (tile maps don't change often)
   if (url.hostname.includes('tile.openstreetmap.org')) {
     event.respondWith(cacheFirstWithNetwork(request, CACHE_TILES));
     return;
   }
 
-  if (
-    url.hostname.includes('fonts.googleapis.com') ||
-    url.hostname.includes('fonts.gstatic.com') ||
-    url.hostname.includes('unpkg.com') ||
-    url.hostname.includes('cdnjs.cloudflare.com')
-  ) {
+  // Google Fonts / CDN → Cache First
+  if (url.hostname.includes('fonts.googleapis.com') ||
+      url.hostname.includes('fonts.gstatic.com') ||
+      url.hostname.includes('unpkg.com')) {
     event.respondWith(cacheFirstWithNetwork(request, CACHE_DYNAMIC));
     return;
   }
 
+  // App shell + local files → Cache First, fallback to network then offline page
   event.respondWith(cacheFirstWithOfflineFallback(request));
 });
 
+// Network First: coba network, cache bila berhasil, fallback ke cache
 async function networkFirstWithFallback(request, cacheName) {
   try {
     const networkRes = await fetch(request, { signal: AbortSignal.timeout(8000) });
@@ -109,6 +111,7 @@ async function networkFirstWithFallback(request, cacheName) {
   }
 }
 
+// Cache First: cek cache dulu, kalau tidak ada ambil dari network
 async function cacheFirstWithNetwork(request, cacheName) {
   const cached = await caches.match(request);
   if (cached) return cached;
@@ -124,6 +127,7 @@ async function cacheFirstWithNetwork(request, cacheName) {
   }
 }
 
+// Cache First dengan fallback offline page untuk navigasi
 async function cacheFirstWithOfflineFallback(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
@@ -136,6 +140,7 @@ async function cacheFirstWithOfflineFallback(request) {
     }
     return networkRes;
   } catch {
+    // Untuk request navigasi (HTML), kembalikan index.html
     if (request.mode === 'navigate') {
       const fallback = await caches.match('./index.html');
       if (fallback) return fallback;
@@ -144,6 +149,7 @@ async function cacheFirstWithOfflineFallback(request) {
   }
 }
 
+// ---- PUSH NOTIFICATION ----
 self.addEventListener('push', (event) => {
   console.log('[SW] Push received');
 
@@ -154,6 +160,7 @@ self.addEventListener('push', (event) => {
     payload = { title: 'StoryMap', body: event.data?.text() || 'Ada cerita baru!' };
   }
 
+  // Bangun notifikasi secara dinamis dari data push
   const title = payload.title || 'StoryMap 🗺️';
   const storyId = payload.storyId || payload.options?.data?.storyId || null;
 
@@ -177,14 +184,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    (async () => {
-      
-      if (Notification.permission !== 'granted') {
-        console.warn('[SW] showNotification dibatalkan: permission belum diberikan (' + Notification.permission + '). Pastikan Notification.requestPermission() sudah dipanggil dari halaman terlebih dahulu.');
-        return;
-      }
-      await self.registration.showNotification(title, options);
-    })()
+    self.registration.showNotification(title, options)
   );
 });
 
@@ -195,12 +195,13 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'dismiss') return;
 
-  const { storyId } = event.notification.data || {};
+  const { storyId, url } = event.notification.data || {};
   const targetPath = storyId ? `/stories/${storyId}` : '/';
   const targetUrl = `${self.location.origin}/#${targetPath}`;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Cari window yang sudah terbuka
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           client.focus();
@@ -208,6 +209,7 @@ self.addEventListener('notificationclick', (event) => {
           return;
         }
       }
+      // Buka window baru
       if (clients.openWindow) return clients.openWindow(targetUrl);
     })
   );
@@ -224,4 +226,4 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-console.log('[SW] Service Worker v3 loaded');
+console.log('[SW] Service Worker loaded');

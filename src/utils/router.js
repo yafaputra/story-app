@@ -1,4 +1,5 @@
 
+
 class Router {
   #routes = new Map();
   #beforeEach = null;
@@ -25,6 +26,7 @@ class Router {
     try {
       const path = hash.replace(/^#/, '') || '/';
 
+      // Match route
       let handler = null;
       let params = {};
       for (const [route, fn] of this.#routes) {
@@ -33,39 +35,39 @@ class Router {
       }
       if (!handler) handler = this.#routes.get('/404') || (() => this.#notFound());
 
+      // Guard
       if (this.#beforeEach) {
         const allow = await this.#beforeEach(path, params);
         if (allow === false) return;
       }
 
+      // Transisi halaman
       const container = document.getElementById('page-container');
-
-      if (document.startViewTransition && container) {
-        const transition = document.startViewTransition(async () => {
-          await handler(params);
-          this.#updateActive(path);
-        });
-
-        await transition.finished.catch(() => {});
-      } else if (container) {
-        // Fallback untuk browser yang tidak mendukung View Transition API
+      if (container) {
+        // Fade out
+        container.style.transition = 'opacity .18s ease, transform .18s ease';
         container.style.opacity = '0';
-        await new Promise(r => setTimeout(r, 150));
+        container.style.transform = 'translateY(6px)';
+
+        await new Promise(r => setTimeout(r, 180));
+
+        // Render
         await handler(params);
+
+        // Fade in
         container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
         this.#updateActive(path);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Accessibility: fokus ke main content
+        const main = document.getElementById('main-content');
+        if (main) {
+          main.focus({ preventScroll: true });
+        }
       } else {
         await handler(params);
-        this.#updateActive(path);
       }
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-
-      const main = document.getElementById('main-content');
-      if (main) {
-        main.focus({ preventScroll: true });
-      }
-
     } finally {
       this.#isNavigating = false;
     }
@@ -111,7 +113,7 @@ class Router {
   init() {
     const handle = () => this.#handle(window.location.hash);
     window.addEventListener('hashchange', handle);
-    handle(); 
+    handle(); // handle initial route
     return this;
   }
 }

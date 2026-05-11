@@ -1,7 +1,10 @@
+// ============================================================
+// API Service - Dicoding Story API
+// ============================================================
 
 const BASE_URL = 'https://story-api.dicoding.dev/v1';
 
-export const VAPID_PUBLIC_KEY = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Zvlars8MgAEOo1YRpB03YKF1HGkLbCEivJgbcXDRSFnB0HAzNjiEi6P8';
+export const VAPID_PUBLIC_KEY = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Zvlars8MgAEOo1YRpB03YKF1HGkLbCEivJgbcXDRSFnB0HAzNjiEi6P8s';
 
 class ApiService {
   #token = null;

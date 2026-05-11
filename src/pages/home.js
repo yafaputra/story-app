@@ -104,7 +104,7 @@ async function loadRecentStories() {
         }
 
         if (!stories.length) {
-            el.innerHTML = `<div class="empty-state"><h3>Belum ada cerita</h3><p>Jadilah yang pertama berbagi!</p><a href="#/add" class="btn btn-primary">Tambah Cerita</a></div>`;
+            el.innerHTML = `<div class="empty-state"><h2>Belum ada cerita</h2><p>Jadilah yang pertama berbagi!</p><a href="#/add" class="btn btn-primary">Tambah Cerita</a></div>`;
             return;
         }
 
@@ -245,5 +245,5 @@ export function skeletonCards(n) {
 }
 
 function errorState(msg) {
-    return `<div class="empty-state"><h3>Gagal memuat</h3><p>${escapeHtml(msg)}</p></div>`;
+    return `<div class="empty-state"><h2>Gagal memuat</h2><p>${escapeHtml(msg)}</p></div>`;
 }

@@ -14,6 +14,7 @@ export async function renderFavorites() {
         </div>
 
         <div class="toolbar">
+          <label for="favSearch" class="sr-only">Cari cerita favorit</label>
           <input
             type="search"
             id="favSearch"
@@ -21,6 +22,7 @@ export async function renderFavorites() {
             placeholder="Cari di favorit..."
             aria-label="Cari cerita favorit"
           />
+          <label for="favSort" class="sr-only">Urutkan favorit</label>
           <select id="favSort" class="sort-box" aria-label="Urutkan favorit">
             <option value="savedAt_desc">Terbaru disimpan</option>
             <option value="savedAt_asc">Terlama disimpan</option>
@@ -81,7 +83,7 @@ async function loadFavorites() {
     if (!data.length) {
       grid.innerHTML = `
         <div class="empty-state">
-          <h3>${currentQuery ? 'Tidak ditemukan' : 'Belum ada favorit'}</h3>
+          <h2>${currentQuery ? 'Tidak ditemukan' : 'Belum ada favorit'}</h2>
           <p>${currentQuery ? 'Coba kata kunci lain' : 'Tekan tombol pada cerita untuk menyimpannya'}</p>
           ${!currentQuery ? '<a href="#/explore" class="btn btn-primary" style="margin-top:1rem">Jelajahi Cerita</a>' : ''}
         </div>
@@ -93,7 +95,7 @@ async function loadFavorites() {
     bindEvents(grid);
 
   } catch (err) {
-    grid.innerHTML = `<div class="empty-state"><h3>Gagal memuat</h3><p>${escapeHtml(err.message)}</p></div>`;
+    grid.innerHTML = `<div class="empty-state"><h2>Gagal memuat</h2><p>${escapeHtml(err.message)}</p></div>`;
   }
 }
 

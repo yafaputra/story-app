@@ -1,9 +1,10 @@
+
 import { router } from './utils/router.js';
 import './styles/main.css';
 import { api } from './utils/api.js';
 import { idb } from './utils/idb.js';
 import { showToast, isOnline } from './utils/helpers.js';
-import { subscribePush, unsubscribePush, isPushSupported, getPushSubscription, requestNotificationPermission } from './utils/push.js';
+import { subscribePush, unsubscribePush, isPushSupported, getPushSubscription } from './utils/push.js';
 
 import { renderHome } from './pages/home.js';
 import { renderExplore } from './pages/explore.js';
@@ -67,82 +68,6 @@ function initInstallBanner() {
   });
 }
 
-function showNotifPermissionDialog() {
-  return new Promise((resolve) => {
-    const existing = document.getElementById('notifPermissionDialog');
-    if (existing) existing.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'notifPermissionDialog';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-labelledby', 'notifDialogTitle');
-    overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 9999;
-      background: rgba(0,0,0,0.5);
-      display: flex; align-items: center; justify-content: center;
-      padding: 1rem;
-    `;
-
-    overlay.innerHTML = `
-      <div style="
-        background: #fff; border-radius: 16px; padding: 1.5rem;
-        max-width: 360px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-      ">
-        <div style="text-align:center; margin-bottom: 1rem;">
-          <div style="
-            width: 56px; height: 56px; border-radius: 50%;
-            background: #e8f4fd; margin: 0 auto 0.75rem;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 28px;
-          ">🔔</div>
-          <h2 id="notifDialogTitle" style="margin:0 0 0.5rem; font-size:1.1rem; font-weight:600; color:#1a1a2e">
-            Izinkan Notifikasi?
-          </h2>
-          <p style="margin:0; font-size:0.875rem; color:#555; line-height:1.6">
-            StoryMap ingin mengirimkan notifikasi untuk memberi tahu kamu saat ada cerita baru atau aktivitas penting.
-          </p>
-        </div>
-        <ul style="
-          margin: 0 0 1.25rem; padding: 0.75rem 1rem;
-          background: #f8f9fa; border-radius: 10px;
-          list-style: none; font-size: 0.82rem; color: #444;
-        ">
-          <li style="padding: 3px 0">✅ Pemberitahuan cerita baru</li>
-          <li style="padding: 3px 0">✅ Pengingat aktivitas akunmu</li>
-          <li style="padding: 3px 0">🚫 Tidak ada spam atau iklan</li>
-        </ul>
-        <div style="display:flex; gap: 0.75rem;">
-          <button id="notifDenyBtn" style="
-            flex:1; padding: 0.65rem; border-radius: 10px;
-            border: 1.5px solid #ddd; background: #fff;
-            font-size: 0.875rem; cursor: pointer; color: #555;
-          ">Tidak, terima kasih</button>
-          <button id="notifAllowBtn" style="
-            flex:1; padding: 0.65rem; border-radius: 10px;
-            border: none; background: #3b82f6;
-            font-size: 0.875rem; cursor: pointer; color: #fff; font-weight: 600;
-          ">Izinkan</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    document.getElementById('notifAllowBtn').addEventListener('click', () => {
-      overlay.remove();
-      resolve(true);
-    });
-    document.getElementById('notifDenyBtn').addEventListener('click', () => {
-      overlay.remove();
-      resolve(false);
-    });
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) { overlay.remove(); resolve(false); }
-    });
-  });
-}
-
 async function initPushToggle() {
   const wrap = document.getElementById('notifToggle');
   const btn = document.getElementById('togglePushBtn');
@@ -150,13 +75,6 @@ async function initPushToggle() {
 
   if (!isPushSupported() || !api.isLoggedIn()) return;
   wrap.classList.remove('hidden');
-
-  if (Notification.permission === 'denied') {
-    btn.title = 'Notifikasi diblokir. Aktifkan di pengaturan browser lalu refresh halaman.';
-    btn.disabled = true;
-    updatePushBtn(btn, false);
-    return;
-  }
 
   const sub = await getPushSubscription();
   updatePushBtn(btn, !!sub);
@@ -170,25 +88,9 @@ async function initPushToggle() {
         updatePushBtn(btn, false);
         showToast('Push notification dinonaktifkan', 'info');
       } else {
-        // Jika permission belum diberikan, tampilkan dialog penjelasan dulu
-        if (Notification.permission !== 'granted') {
-          const userAgreed = await showNotifPermissionDialog();
-          if (!userAgreed) {
-            showToast('Izin notifikasi tidak diberikan', 'info');
-            btn.disabled = false;
-            return;
-          }
-          // Setelah user setuju, baru panggil requestPermission() browser
-          const permission = await Notification.requestPermission();
-          if (permission !== 'granted') {
-            showToast('Izin notifikasi ditolak oleh browser', 'error');
-            btn.disabled = false;
-            return;
-          }
-        }
         await subscribePush();
         updatePushBtn(btn, true);
-        showToast('Push notification aktif! 🔔', 'success');
+        showToast('Push notification aktif!', 'success');
       }
     } catch (err) {
       showToast('Gagal: ' + err.message, 'error');
@@ -264,12 +166,13 @@ function initMobileMenu() {
   });
 }
 
+// ---- Network Status ----
 function initNetworkStatus() {
   const banner = document.getElementById('statusBanner');
   const update = () => {
     if (!banner) return;
     if (!navigator.onLine) {
-      banner.textContent = 'Anda sedang offline. Data ditampilkan dari cache.';
+      banner.textContent = '📶 Anda sedang offline. Data ditampilkan dari cache.';
       banner.className = 'status-banner offline';
       banner.classList.remove('hidden');
     } else {
@@ -278,7 +181,7 @@ function initNetworkStatus() {
       if (api.isLoggedIn()) {
         idb.getQueue().then(q => {
           if (q.length) {
-            showToast(`Menyinkronkan ${q.length} cerita offline...`, 'info');
+            showToast(`🔄 Menyinkronkan ${q.length} cerita offline...`, 'info');
             syncQueue();
           }
         });
@@ -290,6 +193,7 @@ function initNetworkStatus() {
   update();
 }
 
+// ---- Routes ----
 function setupRoutes() {
   router
     .add('/', () => renderHome())
@@ -313,6 +217,7 @@ function setupRoutes() {
     .init();
 }
 
+// ---- Init ----
 async function init() {
   await idb.open();
   updateNavAuth();
@@ -321,6 +226,7 @@ async function init() {
   initInstallBanner();
   setupRoutes();
 
+  // Async inits after routes are set
   registerSW().then(() => {
     setTimeout(() => initPushToggle(), 800);
   });

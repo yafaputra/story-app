@@ -21,6 +21,7 @@ export async function renderExplore() {
         </div>
 
         <div class="toolbar">
+          <label for="exploreSearch" class="sr-only">Cari cerita</label>
           <input type="search" id="exploreSearch" class="search-box" placeholder="Cari cerita..." aria-label="Cari cerita" />
           <div class="view-toggle" role="group" aria-label="Mode tampilan">
             <button class="view-btn active" id="viewGrid" aria-pressed="true" title="Tampilan grid">⊞ Grid</button>
@@ -70,9 +71,9 @@ async function loadStories() {
       allStories = await idb.getCachedStories();
       filteredStories = allStories;
       if (allStories.length) { renderPage(); initExploreMap(); }
-      else grid.innerHTML = `<div class="empty-state"><h3>Gagal memuat</h3><p>${escapeHtml(err.message)}</p></div>`;
+      else grid.innerHTML = `<div class="empty-state"><h2>Gagal memuat</h2><p>${escapeHtml(err.message)}</p></div>`;
     } catch {
-      grid.innerHTML = `<div class="empty-state"><h3>Gagal memuat cerita</h3><p>Periksa koneksi internet Anda</p></div>`;
+      grid.innerHTML = `<div class="empty-state"><h2>Gagal memuat cerita</h2><p>Periksa koneksi internet Anda</p></div>`;
     }
   }
 }
@@ -87,7 +88,7 @@ function renderPage() {
   const totalPages = Math.ceil(filteredStories.length / PAGE_SIZE);
 
   if (!pageItems.length) {
-    grid.innerHTML = `<div class="empty-state"><h3>Tidak ditemukan</h3><p>Coba kata kunci lain</p></div>`;
+    grid.innerHTML = `<div class="empty-state"><h2>Tidak ditemukan</h2><p>Coba kata kunci lain</p></div>`;
     if (pag) pag.innerHTML = '';
     return;
   }
