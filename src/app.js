@@ -4,7 +4,7 @@ import './styles/main.css';
 import { api } from './utils/api.js';
 import { idb } from './utils/idb.js';
 import { showToast, isOnline } from './utils/helpers.js';
-import { subscribePush, unsubscribePush, isPushSupported, getPushSubscription } from './utils/push.js';
+import { subscribePush, unsubscribePush, isPushSupported, getPushSubscription, requestNotificationPermission, isNotificationGranted } from './utils/push.js';
 
 import { renderHome } from './pages/home.js';
 import { renderExplore } from './pages/explore.js';
@@ -88,6 +88,13 @@ async function initPushToggle() {
         updatePushBtn(btn, false);
         showToast('Push notification dinonaktifkan', 'info');
       } else {
+        // Minta izin notifikasi secara eksplisit sebelum subscribe
+        const permissionGranted = await requestNotificationPermission();
+        if (!permissionGranted) {
+          showToast('Izin notifikasi diperlukan untuk mengaktifkan fitur ini.', 'error');
+          btn.disabled = false;
+          return;
+        }
         await subscribePush();
         updatePushBtn(btn, true);
         showToast('Push notification aktif!', 'success');

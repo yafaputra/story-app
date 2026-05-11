@@ -15,6 +15,44 @@ export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
+export function isNotificationAvailable() {
+  return 'Notification' in window;
+}
+
+export function isNotificationGranted() {
+  return Notification.permission === 'granted';
+}
+
+export async function requestNotificationPermission() {
+  if (!isNotificationAvailable()) {
+    console.error('Notification API tidak didukung oleh browser ini.');
+    return false;
+  }
+
+  if (isNotificationGranted()) {
+    return true;
+  }
+
+  if (Notification.permission === 'denied') {
+    alert('Izin notifikasi telah ditolak. Silakan aktifkan notifikasi di pengaturan browser Anda.');
+    return false;
+  }
+
+  const status = await Notification.requestPermission();
+
+  if (status === 'denied') {
+    alert('Izin notifikasi ditolak.');
+    return false;
+  }
+
+  if (status === 'default') {
+    alert('Izin notifikasi ditutup atau diabaikan.');
+    return false;
+  }
+
+  return true;
+}
+
 export async function getPushSubscription() {
   if (!('serviceWorker' in navigator)) return null;
   try {
@@ -26,22 +64,42 @@ export async function getPushSubscription() {
 export async function subscribePush() {
   if (!api.isLoggedIn()) throw new Error('Harus login terlebih dahulu');
 
-  let permission = Notification.permission;
-  if (permission === 'denied') throw new Error('Izin notifikasi telah ditolak. Aktifkan di pengaturan browser.');
-  if (permission !== 'granted') {
-    permission = await Notification.requestPermission();
-    if (permission !== 'granted') throw new Error('Izin notifikasi ditolak');
+  // Minta izin notifikasi secara eksplisit sebelum proses subscribe
+  const permissionGranted = await requestNotificationPermission();
+  if (!permissionGranted) {
+    throw new Error('Izin notifikasi diperlukan untuk mengaktifkan push notification.');
+  }
+
+  // Cek apakah sudah berlangganan sebelumnya
+  const existingSub = await getPushSubscription();
+  if (existingSub) {
+    console.log('Sudah berlangganan push notification.');
+    localStorage.setItem('pushSubscribed', 'true');
+    return existingSub;
   }
 
   const reg = await navigator.serviceWorker.ready;
-  const subscription = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-  });
+  let subscription;
+  try {
+    subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+  } catch (error) {
+    console.error('subscribePush: gagal subscribe ke push manager:', error);
+    throw new Error('Gagal berlangganan push notification.');
+  }
 
-  await api.subscribePush(subscription);
-  localStorage.setItem('pushSubscribed', 'true');
-  return subscription;
+  try {
+    await api.subscribePush(subscription);
+    localStorage.setItem('pushSubscribed', 'true');
+    return subscription;
+  } catch (error) {
+    // Batalkan subscribe di sisi client jika penyimpanan ke server gagal
+    console.error('subscribePush: gagal menyimpan langganan ke server:', error);
+    await subscription.unsubscribe();
+    throw new Error('Gagal menyimpan langganan ke server. Silakan coba lagi.');
+  }
 }
 
 export async function unsubscribePush() {
